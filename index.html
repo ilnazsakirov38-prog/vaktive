@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Молодёжь в активности</title>
+
+  <!-- VKUI для компонентов VK -->
+  <link rel="stylesheet" href="https://unpkg.com/@vkontakte/vkui@4/dist/vkui.css" />
+  <script src="https://unpkg.com/@vkontakte/vkui@4/dist/vkui.js"></script>
+
+  <!-- VK Bridge для работы внутри VK -->
+  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, Roboto, Segoe UI, Helvetica, Arial, sans-serif;
+      background: #eef4ff;
+      color: #191919;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    /* 3D-эффект фона */
+    .bg-3d {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .bg-circle {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.6;
+      filter: blur(40px);
+    }
+    .c1 { width: 300px; height: 300px; background: #63b3ed; top: -100px; left: -100px; }
+    .c2 { width: 400px; height: 400px; background: #ffffff; top: 20%; right: -150px; }
+    .c3 { width: 250px; height: 250px; background: #005f9e; bottom: -50px; left: 30%; }
+
+    /* Прелоадер */
+    #preload-screen {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: #eef4ff;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .preloader-icon {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 16px;
+    }
+    .preloader-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .steps-container {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .step-img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      opacity: 0.4;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .step-img.active {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+    .loading-text {
+      margin-top: 14px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .app-header {
+      padding: 16px;
+      text-align: center;
+      position: relative;
+      z-index: 10;
+    }
+    .app-title {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin: 0;
+      color: #005f9e;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .app-subtitle {
+      font-size: 14px;
+      color: #4a6fa5;
+      margin-top: 6px;
+      font-weight: 500;
+    }
+    .logo-placeholder {
+      width: 80px;
+      height: 80px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+    .logo-placeholder img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .tabs-container {
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0;
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(10px);
+      z-index: 5;
+    }
+    .tab-btn {
+      border: none;
+      background: transparent;
+      color: #888;
+      font-size: 13px;
+      padding: 8px 16px;
+      cursor: pointer;
+      border-radius: 12px;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: #ffffff;
+      color: #005f9e;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+
+    .panel-content {
+      display: none;
+      padding: 16px;
+      position: relative;
+      z-index: 2;
+    }
+    .panel-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .card {
+      background: white;
+      padding: 18px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+      border: 1px solid rgba(0,95,158,0.1);
+    }
+    .card-title {
+      font-weight: 700;
+      font-size: 17px;
+      margin-bottom: 8px;
+      color: #005f9e;
+    }
+    .card-desc {
+      color: #555;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .role-radio-group {
+      margin-top: 12px;
+    }
+    .role-radio-label {
+      display: block;
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .role-radio-label:hover {
+      border-color: #005f9e;
+      background: #f9fbff;
+    }
+    .role-radio-label input[type="radio"] {
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+
+    .btn-primary {
+      background: #005f9e;
+      color: white;
+      border: none;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 12px;
+      box-shadow: 0 4px 12px rgba(0,95,158,0.3);
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+    .btn-primary:active { transform: scale(0.98); }
+
+    .contacts-block {
+      background: white;
+      padding: 16px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+    .contact-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .contact-icon {
+      width: 40px;
+      height: 40px;
+      background: #eef4ff;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #005f9e;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(6px);
+    }
+    .modal {
+      background: white;
+      padding: 28px;
+      border-radius: 16px;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+    .modal h3 {
+      margin: 0 0 18px 0;
+      font-size: 19px;
+      color: #005f9e;
+    }
+    .form-group { margin-bottom: 16px; position: relative; }
+    .form-label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .form-input, .help-dropdown-form {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+    .close-modal {
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      cursor: pointer;
+      color: #999;
+      font-size: 20px;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- 3D фон -->
+  <div class="bg-3d">
+    <div class="bg-circle c1"></div>
+    <div class="bg-circle c2"></div>
+    <div class="bg-circle c3"></div>
+  </div>
+
+  <!-- Прелоадер -->
+  <div id="preload-screen">
+    <div class="preloader-icon">
+      <!-- Если нет иконки — можно временно поставить цветную заглушку текстом -->
+      <img src="loader-icon.png" onerror="this.style.display='none'; this.parentNode.innerHTML='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#005f9e;\'>Загрузка</div>'" alt="Иконка загрузки" />
+    </div>
+    <div class="steps-container">
+      <img src="loader-1.png" class="step-img active" id="step1" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 60 60\'%3E%3Ccircle cx=\'30\' cy=\'30\' r=\'25\' fill=\'%2363b3ed\'/%3E%3C/svg%3E'" alt="Этап 1" />
+      <img src="loader-2.png" class="step-img" id="step2" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 60 60\'%3E%3Ccircle cx=\'30\' cy=\'30\' r=\'25\' fill=\'%23ffffff\'/%3E%3C/svg%3E'" alt="Этап 2" />
+      <img src="loader-3.png" class="step-img" id="step3" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 60 60\'%3E%3Ccircle cx=\'30\' cy=\'30\' r=\'25\' fill=\'%23005f9e\'/%3E%3C/svg%3E'" alt="Этап 3" />
+    </div>
+    <div class="loading-text">Загружаем приложение…</div>
+  </div>
+
+  <div id="root"></div>
+
+  <!-- Модальное окно опросника -->
+  <div class="modal-overlay" id="surveyModal">
+    <div class="modal">
+      <span class="close-modal" onclick="closeSurvey()">×</span>
+      <h3>Расскажи, чем хочешь помочь</h3>
+      <form onsubmit="submitSurvey(event)">
+        <div class="form-group">
+          <label class="form-label">Твой город и учебное заведение</label>
+          <input type="text" class="form-input" id="citySchool" required placeholder="Например: Москва, Школа №8">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Что тебе интереснее всего?</label>
+          <select class="form-input help-dropdown-form" id="interest" required>
+            <option value="" disabled selected>Выбери направление</option>
+            <option value="events">Организация мероприятий</option>
+            <option value="media">Медиа и контент</option>
+            <option value="volunteer">Волонтёрство на площадке</option>
+            <option value="projects">Проектная деятельность</option>
+            <option value="mentor">Наставничество и помощь новичкам</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Сколько времени в неделю готов(а) уделять?</label>
+          <select class="form-input help-dropdown-form" id="time" required>
+            <option value="" disabled selected>Выбери вариант</option>
+            <option value="1-2">1–2 часа</option>
+            <option value="3-5">
+            <option value="3-5">3–5 часов</option>
+            <option value="6+">6+ часов</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-primary">Отправить</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const bridge = window.vkBridge;
+    if (bridge) {
+      bridge.send('VKWebAppInit');
+    }
+
+    // Роли, включая работу с детьми с ОВЗ (исправленный массив без дублей и обрывов)
+    const roles = [
+      {
+        id: 'coordinator-helper',
+        title: 'Помощник координатора',
+        desc: 'Ты сможешь быть в центре событий: встречать участников, раздавать материалы, следить за таймингом и помогать команде держать всё под контролем. Идеально, если ты любишь порядок и видеть результат сразу.'
+      },
+      {
+        id: 'media-volunteer',
+        title: 'Медиа-волонтёр',
+        desc: 'Ты будешь ловить яркие моменты: фото, короткие видео, сторис, посты. Твоя задача — сделать так, чтобы о форуме говорили и после него. Подойдёт, если любишь снимать, монтировать и рассказывать истории.'
+      },
+      {
+        id: 'novice-curator',
+        title: 'Куратор новичков',
+        desc: 'Ты поможешь тем, кто пришёл впервые: встретишь, расскажешь про программу, покажешь, где что находится, и поддержишь, если будет волнительно. Это роль для тех, кто любит помогать и быть наставником — как раз в духе «Первые — первым».'
+      },
+      {
+        id: 'task-organizer',
+        title: 'Организатор задач',
+        desc: 'Ты помогаешь распределять задачи между волонтёрами, следить за статусами и напоминать про дедлайны. Подойдёт, если тебе нравится структурировать, планировать и видеть, как всё работает как часы.'
+      },
+      {
+        id: 'ovz-support-volunteer',
+        title: 'Волонтёр поддержки детей с ОВЗ',
+        desc: 'Твоя задача — помогать детям с ОВЗ и их сопровождающим: встречать, сопровождать по площадке, помогать ориентироваться в расписании и пространстве, быть рядом, если нужна поддержка. Важно быть внимательным, спокойным и терпеливым.'
+      },
+      {
+        id: 'ovz-activity-helper',
+        title: 'Помощник в инклюзивных активностях',
+        desc: 'Ты будешь помогать в проведении адаптированных мастер‑классов и игр для детей с ОВЗ: подготавливать материалы, помогать участникам, следить за безопасностью и комфортом. Подойдёт тем, кто хочет напрямую участвовать в создании инклюзивной среды.'
+      }
+    ];
+
+    const events = [
+      {
+        title: 'Форум «Город молодых»',
+        desc: '2 дня насыщенной программы: мастер-классы, нетворкинг, стенды компаний и НКО. Ты сможешь выбрать трек и взять реальную задачу — даже если раньше не участвовал.'
+      },
+      {
+        title: 'Школа актива',
+        desc: 'Обучение основам организации мероприятий, работы в команде и публичных выступлений. Проходит раз в месяц, подходит для начинающих — отличный старт, чтобы попробовать себя в деле.'
+      },
+      {
+        title: 'Городской квест «Первые — первым»',
+        desc: 'Командная игра по городу: задания на логику, творчество и взаимодействие. Отличный способ познакомиться, проявить себя и почувствовать, что ты часть большой команды.'
+      }
+    ];
+
+    const contacts = [
+      { icon: '✉️', label: 'Почта координаторов', value: 'cityyoung@example.com' },
+      { icon: '📱', label: 'Телефон горячей линии', value: '+7 (999) 000-00-00' }
+    ];
+
+    let selectedRoleId = null;
+
+    function startPreloader() {
+      const steps = ['step1', 'step2', 'step3'];
+      let currentStep = 0;
+
+      const interval = setInterval(() => {
+        steps.forEach(id => document.getElementById(id).classList.remove('active'));
+        currentStep = (currentStep + 1) % steps.length;
+        document.getElementById(steps[currentStep]).classList.add('active');
+      }, 800);
+
+      setTimeout(() => {
+        clearInterval(interval);
+        const preload = document.getElementById('preload-screen');
+        preload.style.opacity = '0';
+        setTimeout(() => {
+          preload.style.display = 'none';
+          render();
+        }, 300);
+      }, 2400);
+    }
+
+    function render() {
+      const root = document.getElementById('root');
+      root.innerHTML = `
+        <div style="display:flex; flex-direction:column; height:100vh;">
+          <div class="app-header">
+            <div class="logo-placeholder">
+              <img src="logo.png" onerror="this.style.display='none'; this.parentNode.innerHTML='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#005f9e;font-weight:bold;\'>ДП</div>'" alt="Логотип Движения Первых" />
+            </div>
+            <h1 class="app-title">Молодёжь<br>в активности</h1>
+            <div class="app-subtitle">Движение Первых: будь в деле!</div>
+          </div>
+
+          <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab('home')">Главная</button>
+            <button class="tab-btn" onclick="switchTab('roles')">Роли</button>
+            <button class="tab-btn" onclick="switchTab('events')">Мероприятия</button>
+            <button class="tab-btn" onclick="switchTab('contacts')">Контакты</button>
+          </div>
+
+          <!-- Главная -->
+          <div id="home" class="panel-content active">
+            <p style="color:#555; line-height:1.5;">Хочешь быть полезным и заметным? Выбери, что ближе: пройди короткий опрос, выбери роль или узнай про ближайшие мероприятия.</p>
+            <br>
+            <button class="btn-primary" onclick="openSurvey()">Пройти опрос (2 минуты)</button>
+            <button class="btn-primary" style="background:#5f7dd2; margin-top:12px;" onclick="switchTab('roles')">Выбрать роль</button>
+          </div>
+
+          <!-- Роли с выбором -->
+          <div id="roles" class="panel-content">
+            <h3 style="color:#005f9e; margin-bottom:16px;">Выбери свою роль</h3>
+            ${roles.map(r => `
+              <label class="role-radio-label">
+                <input type="radio" name="selectedRole" value="${r.id}" onchange="setSelectedRole('${r.id}')">
+                <div>
+                  <div class="card-title">${r.title}</div>
+                  <div class="card-desc">${r.desc}</div>
+                </div>
+              </label>
+            `).join('')}
+            <div id="roleConfirmation" style="margin-top:20px; display:none; padding:16px; background:#eef4ff; border-radius:12px; color:#005f9e;">
+              <strong>Отлично! Ты выбрал(а) роль.</strong><br>
+              Кураторы с вами свяжутся в ближайшее время, чтобы рассказать о следующих шагах.
+            </div>
+            <button class="btn-primary" id="submitRoleBtn" style="display:none;" onclick="confirmRoleSelection()">Подтвердить выбор</button>
+          </div>
+
+          <!-- Мероприятия -->
+          <div id="events" class="panel-content">
+            ${events.map(e => `
+              <div class="card">
+                <div class="card-title">${e.title}</div>
+                <div class="card-desc">${e.desc}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Контакты -->
+          <div id="contacts" class="panel-content">
+            <div class="contacts-block">
+              ${contacts.map(c => `
+                <div class="contact-row">
+                  <div class="contact-icon">${c.icon}</div>
+                  <div>
+                    <div style="font-weight:600; color:#191919;">${c.label}</div>
+                    <div style="color:#555; font-size:13px;">${c.value}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.panel-content').forEach(panel => panel.classList.remove('active'));
+
+      const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => {
+        const handler = btn.getAttribute('onclick');
+        return handler && handler.includes(`'${tabName}'`);
+      });
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const activePanel = document.getElementById(tabName);
+      if (activePanel) activePanel.classList.add('active');
+    }
+
+    function setSelectedRole(roleId) {
+      selectedRoleId = roleId;
+      const confirmDiv = document.getElementById('roleConfirmation');
+      const btn = document.getElementById('submitRoleBtn');
+      confirmDiv.style.display = 'block';
+      btn.style.display = 'block';
+    }
+
+    function confirmRoleSelection() {
+      alert('Спасибо! Твоя роль выбрана. Кураторы с вами свяжутся.');
+    }
+
+    function openSurvey() {
+      document.getElementById('surveyModal').style.display = 'flex';
+    }
+
+    function closeSurvey() {
+      document.getElementById('surveyModal').style.display = 'none';
+    }
+
+    function submitSurvey(e) {
+      e.preventDefault();
+      const citySchool = document.getElementById('citySchool').value;
+      const interest = document.getElementById('interest').value;
+      const time = document.getElementById('time').value;
+
+      alert(`Спасибо! Ты хочешь помогать в направлении "${interest}", готов уделять ${time} в неделю. Данные: ${citySchool}`);
+      closeSurvey();
+    }
+
+    startPreloader();
+  </script>
+</body>
+</html>
